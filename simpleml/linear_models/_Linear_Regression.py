@@ -7,20 +7,21 @@ from .. import optimizers as opt
 from ..metrics import mean_squared_error
 from ..operations import sum_of_products
 from ..scaling import z_score_standardization
-
+from ..schedulers import inverse_scaling
 
 class LinearRegression:
     n = 0  # Data Row Size
     b_count = 0  # Number of params 
 
-    def __init__(self, lr=1e-2, itterations=10**5, optimizer="sgd", patience=10, 
-                 early_stopping=True, batch_size=32):
+    def __init__(self, lr="invscaling", itterations=1000, optimizer="sgd", patience=10, 
+                 early_stopping=True, batch_size=32, epochs_per_decay=10):
         self.lr = lr
         self.itterations = itterations
         self.optimizer = optimizer
         self.patience = patience
         self.early_stopping = early_stopping
         self.batch_size = batch_size
+        self.epochs_per_decay = epochs_per_decay
         self.fit = LinearRegression.Fit(self)
 
     def beta_dv(self, X, y, y_pred):
@@ -40,6 +41,7 @@ class LinearRegression:
             self.early_stopping = self.model.early_stopping
             self.beta_dv = self.model.beta_dv
             self.batch_size = self.model.batch_size
+            self.epochs_per_decay = self.model.epochs_per_decay
         
         
         def sgd_train(self, X, y):
@@ -47,7 +49,9 @@ class LinearRegression:
             best_loss = math.inf  # Highest Possible Loss for early stopping
             best_prams = self.B
             self.batch_size = self.batch_size if self.batch_size < len(X) else len(X)
-            
+            steps_per_epochs = len(X) // self.batch_size
+            learning_rate = 1.0 if self.lr == "invscaling" else self.lr
+            decayed_lr = learning_rate
 
             for i in range(self.itterations):
                 start = (i * self.batch_size) % len(X)
@@ -55,8 +59,10 @@ class LinearRegression:
                 y_pred = sum_of_products(self.B, X[start:end])
                 
                 dB = self.beta_dv(X[start:end], y[start:end], y_pred)
-                self.B = opt.gradient_descent(self.B, dB, self.lr) 
+                self.B = opt.gradient_descent(self.B, dB, decayed_lr)
                 loss = mean_squared_error(y[start:end], y_pred)
+
+                decayed_lr = inverse_scaling(learning_rate, self.epochs_per_decay, steps_per_epochs, i) if self.lr == "invscaling" else learning_rate
 
                 if round(loss, 4) < round(best_loss, 4):
                     best_prams = self.B

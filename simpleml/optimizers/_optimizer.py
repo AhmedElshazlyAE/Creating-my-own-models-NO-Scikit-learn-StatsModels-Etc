@@ -1,6 +1,16 @@
 # optimizers/_optimizer.py
 # Here we are defining different optimization algorithms.
 
+def lr_decay(initial_lr, epochs, steps_per_epochs, iteration):
+    """
+    Applies learning rate decay.
+    initial_lr: Initial learning rate.
+    decay_rate: Rate at which to decay the learning rate.
+    iteration: Current iteration number.
+    """
+    tau = steps_per_epochs * epochs
+    return initial_lr / (1 + iteration / tau)
+
 def gradient_descent(B, dB, lr):
     """
     Performs a single step of gradient descent optimization.
