@@ -5,16 +5,19 @@ import numpy as np
 import math
 from .. import optimizers as opt
 from ..metrics import mean_squared_error
-from ..operations import sum_of_products
 from ..scaling import z_score_standardization
 from ..schedulers import inverse_scaling
+from ..regularizers import l2
+from ..model_selection import train_test_split
 
 class LinearRegression:
     n = 0  # Data Row Size
-    b_count = 0  # Number of params 
+    w_count = 0  # Number of params 
+    intercept = 0
 
     def __init__(self, lr="invscaling", itterations=1000, optimizer="sgd", patience=10, 
-                 early_stopping=True, batch_size=32, epochs_per_decay=10):
+                 early_stopping=True, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
+                 random_seed=None):
         self.lr = lr
         self.itterations = itterations
         self.optimizer = optimizer
@@ -22,50 +25,87 @@ class LinearRegression:
         self.early_stopping = early_stopping
         self.batch_size = batch_size
         self.epochs_per_decay = epochs_per_decay
+        self.fit_intercept = fit_intercept
+        self.l2_ratio = l2_ratio
+        self.random_seed = random_seed
         self.fit = LinearRegression.Fit(self)
+        
+        
+    def intercept_dv(self, batch_size, y, y_pred):
+        db = (2 / batch_size) * (y_pred - y).sum()
+        return db
 
-    def beta_dv(self, X, y, y_pred):
-        dB = np.zeros(self.b_count)
-        for i in range(self.b_count):
-            dB[i] = (2 / self.n) * ((y_pred - y) * X[:,i]).sum()
-        return dB
+    def weights_dv(self, batch_size, X, y, y_pred, W):
+        dw = np.zeros(self.w_count)
+        residuals = y_pred - y
+        inverse_size = 2 / batch_size
+        l2_term = l2(self.l2_ratio, W)  # Example regularization strength
+        for i in range(self.w_count):
+            dw[i] = inverse_size * (residuals * X[:,i]).sum() + l2_term[i]
+        return dw
 
     class Fit:
         def __init__(self, model):
             self.model = model
-            self.b_count = self.model.b_count
+            self.w_count = self.model.w_count
+            self.intercept = self.model.intercept
+            self.n = self.model.n
             self.lr = self.model.lr
             self.itterations = self.model.itterations
             self.optimizer = self.model.optimizer
             self.patience = self.model.patience
             self.early_stopping = self.model.early_stopping
-            self.beta_dv = self.model.beta_dv
+            self.weights_dv = self.model.weights_dv
+            self.intercept_dv = self.model.intercept_dv
             self.batch_size = self.model.batch_size
             self.epochs_per_decay = self.model.epochs_per_decay
-        
+            self.fit_intercept = self.model.fit_intercept
+            self.random_seed = self.model.random_seed
+            self.l2_ratio = self.model.l2_ratio
+            
         
         def sgd_train(self, X, y):
             patience_idx = 0
             best_loss = math.inf  # Highest Possible Loss for early stopping
-            best_prams = self.B
+            best_prams = self.W
             self.batch_size = self.batch_size if self.batch_size < len(X) else len(X)
-            steps_per_epochs = len(X) // self.batch_size
+            
             learning_rate = 1.0 if self.lr == "invscaling" else self.lr
             decayed_lr = learning_rate
-
+            updates = 0
+            
+            rng = np.random.default_rng(self.random_seed)
+            # Epochs Loop
             for i in range(self.itterations):
-                start = (i * self.batch_size) % len(X)
-                end = start + self.batch_size
-                y_pred = sum_of_products(self.B, X[start:end])
+                # Mini-Batch Gradient Descent
+                perm = rng.permutation(self.n)
                 
-                dB = self.beta_dv(X[start:end], y[start:end], y_pred)
-                self.B = opt.gradient_descent(self.B, dB, decayed_lr)
-                loss = mean_squared_error(y[start:end], y_pred)
+                steps_per_epochs = math.ceil(self.n/self.batch_size)
+                
+                # Mini-Batch Loop
+                for start in range(0, math.ceil(self.n/self.batch_size)):
+                    batch_idx = perm[start * self.batch_size: (start + 1) * self.batch_size]
+                    X_batch = X[batch_idx]
+                    y_batch = np.array(y)[batch_idx]
+                    updates += 1
 
-                decayed_lr = inverse_scaling(learning_rate, self.epochs_per_decay, steps_per_epochs, i) if self.lr == "invscaling" else learning_rate
+                    current_batch_size = len(X_batch)
+                
+                    y_pred = self.predict(X_batch, scaling=False)
+
+                    dw = self.weights_dv(current_batch_size, X_batch, y_batch, y_pred, self.W)
+                    db = self.intercept_dv(current_batch_size, y_batch, y_pred)
+
+                    self.W = opt.gradient_descent(self.W, dw, decayed_lr)
+                    self.intercept = opt.gradient_descent(self.intercept, db, decayed_lr)
+        
+                    decayed_lr = inverse_scaling(learning_rate, self.epochs_per_decay, steps_per_epochs, updates) if self.lr == "invscaling" else learning_rate
+                
+                y_pred = self.predict(X, scaling=False) if not self.early_stopping else self.predict(self.X_val, scaling=False)
+                loss = mean_squared_error(y, y_pred) if not self.early_stopping else mean_squared_error(self.y_val, y_pred)
 
                 if round(loss, 4) < round(best_loss, 4):
-                    best_prams = self.B
+                    best_prams = self.W
                     best_loss = loss
                     patience_idx = 0
                 else:
@@ -73,28 +113,26 @@ class LinearRegression:
                     
                 if patience_idx + 1 >= self.patience and self.model.early_stopping:
                     break
-
-
-            print(i)
-
+            
+            print("Training Loss:", best_loss)
             return best_prams
         
         def adagd_train(self, X, y):
             G = np.zeros(self.b_count)
             patience_idx = 0
             best_loss = math.inf  # Highest Possible Loss for early stopping
-            best_prams = self.B
-            y_pred = sum_of_products(self.B, X)
+            best_prams = self.W
+            y_pred = self.predict(X, scaling=False)
             for i in range(self.itterations):
-                dB = self.beta_dv(X, y, y_pred)
-                G += dB ** 2
-                self.B = opt.adaptive_gradient(self.B, dB, G, self.lr)
+                dw = self.weights_dv(X, y, y_pred)
+                G += dw ** 2
+                self.W = opt.adaptive_gradient(self.W, dw, G, self.lr)
 
-                y_pred = sum_of_products(self.B, X)
+                y_pred = self.predict(X, scaling=False)
                 loss = mean_squared_error(y, y_pred)
 
                 if round(loss, 3) < round(best_loss, 3):
-                    best_prams = self.B
+                    best_prams = self.W
                     best_loss = loss
                     patience_idx = 0
                 else:
@@ -112,31 +150,39 @@ class LinearRegression:
             self.y = y
             self.n = len(y)
 
-            self.scaled_X = np.hstack([np.ones((len(X), 1)),  z_score_standardization(self.X, X)])
-            self.b_count = self.scaled_X.shape[1]
-            self.B = np.zeros(self.b_count)
+            self.scaled_X = z_score_standardization(self.X, X)
+            self.w_count = self.scaled_X.shape[1]
+            self.W = np.zeros(self.w_count)
 
-            self.model.b_count = self.b_count
+            self.model.w_count = self.w_count
             self.model.n = self.n
             
+            if self.early_stopping:
+                X_train, X_val, y_train, y_val = train_test_split(self.scaled_X, self.y, test_size=0.2, random_seed=self.random_seed)
+                self.scaled_X = X_train
+                self.y = y_train
+            
+            self.X_val = X_val if self.early_stopping else None
+            self.y_val = y_val if self.early_stopping else None
+            
             if self.optimizer == "sgd":
-                self.B = self.sgd_train(self.scaled_X, self.y)
+                self.W = self.sgd_train(self.scaled_X, self.y)
             elif self.optimizer == "adaptive_gradient":
-                self.B = self.adagd_train(self.scaled_X, self.y)
+                self.W = self.adagd_train(self.scaled_X, self.y)
 
             return self
             
-        def predict(self, X):
-            X_scaled = z_score_standardization(self.X, X)
-            X = np.hstack([np.ones((len(X), 1)),  X_scaled])
-            try:
-                return sum_of_products(self.B, X)
-            except:
-                return sum_of_products(self.B, X, 1)
+        def predict(self, X, scaling=True):
+            X = z_score_standardization(self.X, X) if scaling else X
             
+            Y = np.zeros(len(X))
+            for i in range(self.w_count):
+                Y += self.W[i] * X[:, i]
+            return Y + self.intercept
+
 
         def _coeff(self):
-            return self.B
+            return np.concatenate([[self.intercept], self.W])
 
         def residuals(self, y, y_pred):
             return y - y_pred
