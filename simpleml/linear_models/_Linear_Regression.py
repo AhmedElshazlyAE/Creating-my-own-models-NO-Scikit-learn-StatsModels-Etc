@@ -17,7 +17,7 @@ class LinearRegression:
 
     def __init__(self, lr="invscaling", itterations=1000, optimizer="sgd", patience=10, 
                  early_stopping=True, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
-                 random_seed=None):
+                 random_state=None):
         self.lr = lr
         self.itterations = itterations
         self.optimizer = optimizer
@@ -27,7 +27,7 @@ class LinearRegression:
         self.epochs_per_decay = epochs_per_decay
         self.fit_intercept = fit_intercept
         self.l2_ratio = l2_ratio
-        self.random_seed = random_seed
+        self.random_state = random_state
         self.fit = LinearRegression.Fit(self)
         
         
@@ -60,7 +60,7 @@ class LinearRegression:
             self.batch_size = self.model.batch_size
             self.epochs_per_decay = self.model.epochs_per_decay
             self.fit_intercept = self.model.fit_intercept
-            self.random_seed = self.model.random_seed
+            self.random_state = self.model.random_state
             self.l2_ratio = self.model.l2_ratio
             
         
@@ -74,7 +74,7 @@ class LinearRegression:
             decayed_lr = learning_rate
             updates = 0
             
-            rng = np.random.default_rng(self.random_seed)
+            rng = np.random.default_rng(self.random_state)
             # Epochs Loop
             for i in range(self.itterations):
                 # Mini-Batch Gradient Descent
@@ -91,7 +91,7 @@ class LinearRegression:
 
                     current_batch_size = len(X_batch)
                 
-                    y_pred = self.predict(X_batch, scaling=False)
+                    y_pred = self.predict(X_batch)
 
                     dw = self.weights_dv(current_batch_size, X_batch, y_batch, y_pred, self.W)
                     db = self.intercept_dv(current_batch_size, y_batch, y_pred)
@@ -101,7 +101,7 @@ class LinearRegression:
         
                     decayed_lr = inverse_scaling(learning_rate, self.epochs_per_decay, steps_per_epochs, updates) if self.lr == "invscaling" else learning_rate
                 
-                y_pred = self.predict(self.X_train, scaling=False) if not self.early_stopping else self.predict(self.X_val, scaling=False)
+                y_pred = self.predict(self.X_train) if not self.early_stopping else self.predict(self.X_val)
                 loss = mean_squared_error(y, y_pred) if not self.early_stopping else mean_squared_error(self.y_val, y_pred)
 
                 if loss < best_loss:
@@ -124,7 +124,7 @@ class LinearRegression:
             patience_idx = 0
             best_loss = math.inf  # Highest Possible Loss for early stopping
             best_prams = self.W
-            y_pred = self.predict(X, scaling=False)
+            y_pred = self.predict(X)
             for i in range(self.itterations):
                 dw = self.weights_dv(X, y, y_pred)
                 G += dw ** 2
@@ -153,7 +153,7 @@ class LinearRegression:
             self.n = len(y)
             
             if self.early_stopping:
-                X_train, X_val, y_train, y_val = train_test_split(self.X, self.y, test_size=0.2, random_state=self.random_seed)
+                X_train, X_val, y_train, y_val = train_test_split(self.X, self.y, test_size=0.2, random_state=self.random_state)
                 self.X_train = X_train
                 self.y_train = y_train
                 self.X_val = X_val
@@ -178,8 +178,8 @@ class LinearRegression:
                 self.W = self.adagd_train(self.X_train, self.y)
             return self
             
-        def predict(self, X, scaling=True):          
-            X = z_score_standardization(self.X_train, X) if scaling else X  
+        def predict(self, X):          
+            X = np.asarray(X, dtype=float)  
             Y = np.zeros(len(X))
             for i in range(self.w_count):
                 Y += self.W[i] * X[:, i]
