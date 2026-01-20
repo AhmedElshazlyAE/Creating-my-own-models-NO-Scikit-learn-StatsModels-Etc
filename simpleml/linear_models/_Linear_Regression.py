@@ -78,15 +78,15 @@ class LinearRegression:
             # Epochs Loop
             for i in range(self.itterations):
                 # Mini-Batch Gradient Descent
-                perm = rng.permutation(self.n)
+                perm = rng.permutation(len(X))
                 
-                steps_per_epochs = math.ceil(self.n/self.batch_size)
+                steps_per_epochs = math.ceil(len(X)/self.batch_size)
                 
                 # Mini-Batch Loop
-                for start in range(0, math.ceil(self.n/self.batch_size)):
+                for start in range(0, math.ceil(len(X)/self.batch_size)):
                     batch_idx = perm[start * self.batch_size: (start + 1) * self.batch_size]
                     X_batch = X[batch_idx]
-                    y_batch = np.array(y)[batch_idx]
+                    y_batch = y[batch_idx]
                     updates += 1
 
                     current_batch_size = len(X_batch)
@@ -101,11 +101,11 @@ class LinearRegression:
         
                     decayed_lr = inverse_scaling(learning_rate, self.epochs_per_decay, steps_per_epochs, updates) if self.lr == "invscaling" else learning_rate
                 
-                y_pred = self.predict(X, scaling=False) if not self.early_stopping else self.predict(self.X_val, scaling=False)
+                y_pred = self.predict(self.X_train, scaling=False) if not self.early_stopping else self.predict(self.X_val, scaling=False)
                 loss = mean_squared_error(y, y_pred) if not self.early_stopping else mean_squared_error(self.y_val, y_pred)
 
-                if round(loss, 4) < round(best_loss, 4):
-                    best_prams = self.W
+                if loss < best_loss:
+                    best_prams = np.concatenate([[self.intercept], self.W.copy()])
                     best_loss = loss
                     patience_idx = 0
                 else:
@@ -114,7 +114,9 @@ class LinearRegression:
                 if patience_idx + 1 >= self.patience and self.model.early_stopping:
                     break
             
-            print("Training Loss:", best_loss)
+            print("Val Loss:", best_loss)
+            if not self.early_stopping:
+                best_prams = np.concatenate([[self.intercept], self.W.copy()])
             return best_prams
         
         def adagd_train(self, X, y):
@@ -146,41 +148,43 @@ class LinearRegression:
 
 
         def __call__(self, X, y):
-            self.X = X
+            self.X = np.asarray(X, dtype=float)
             self.y = y
             self.n = len(y)
-
-            self.scaled_X = z_score_standardization(self.X, X)
-            self.w_count = self.scaled_X.shape[1]
+            
+            if self.early_stopping:
+                X_train, X_val, y_train, y_val = train_test_split(self.X, self.y, test_size=0.2, random_state=self.random_seed)
+                self.X_train = X_train
+                self.y_train = y_train
+                self.X_val = X_val
+                self.y_val = y_val
+            else:
+                self.X_train = X
+                self.y_train = y
+            
+            
+            self.w_count = self.X_train.shape[1]
             self.W = np.zeros(self.w_count)
 
             self.model.w_count = self.w_count
             self.model.n = self.n
             
-            if self.early_stopping:
-                X_train, X_val, y_train, y_val = train_test_split(self.scaled_X, self.y, test_size=0.2, random_seed=self.random_seed)
-                self.scaled_X = X_train
-                self.y = y_train
-            
-            self.X_val = X_val if self.early_stopping else None
-            self.y_val = y_val if self.early_stopping else None
             
             if self.optimizer == "sgd":
-                self.W = self.sgd_train(self.scaled_X, self.y)
+                params = self.sgd_train(self.X_train, self.y_train)
+                self.W = params[1:]
+                self.intercept = params[0]
             elif self.optimizer == "adaptive_gradient":
-                self.W = self.adagd_train(self.scaled_X, self.y)
-
+                self.W = self.adagd_train(self.X_train, self.y)
             return self
             
-        def predict(self, X, scaling=True):
-            X = z_score_standardization(self.X, X) if scaling else X
-            
+        def predict(self, X, scaling=True):          
+            X = z_score_standardization(self.X_train, X) if scaling else X  
             Y = np.zeros(len(X))
             for i in range(self.w_count):
                 Y += self.W[i] * X[:, i]
             return Y + self.intercept
-
-
+        
         def _coeff(self):
             return np.concatenate([[self.intercept], self.W])
 
