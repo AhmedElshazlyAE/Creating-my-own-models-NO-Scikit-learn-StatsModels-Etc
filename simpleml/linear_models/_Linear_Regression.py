@@ -5,10 +5,10 @@ import numpy as np
 import math
 from .. import optimizers as opt
 from ..metrics import mean_squared_error
-from ..scaling import z_score_standardization
 from ..schedulers import inverse_scaling
 from ..regularizers import l2
 from ..model_selection import train_test_split
+
 
 class LinearRegression:
     n = 0  # Data Row Size
@@ -17,7 +17,7 @@ class LinearRegression:
 
     def __init__(self, lr="invscaling", itterations=1000, optimizer="sgd", patience=10, 
                  early_stopping=True, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
-                 random_state=None):
+                 random_state=None): #fit_intercept is useless at the moment
         self.lr = lr
         self.itterations = itterations
         self.optimizer = optimizer
@@ -29,6 +29,7 @@ class LinearRegression:
         self.l2_ratio = l2_ratio
         self.random_state = random_state
         self.fit = LinearRegression.Fit(self)
+        self.fitted = None
         
         
     def intercept_dv(self, batch_size, y, y_pred):
@@ -63,11 +64,12 @@ class LinearRegression:
             self.random_state = self.model.random_state
             self.l2_ratio = self.model.l2_ratio
             
-        
+            self.predict = self.model.predict
+
         def sgd_train(self, X, y):
             patience_idx = 0
             best_loss = math.inf  # Highest Possible Loss for early stopping
-            best_prams = self.W
+            best_weights = self.W
             self.batch_size = self.batch_size if self.batch_size < len(X) else len(X)
             
             learning_rate = 1.0 if self.lr == "invscaling" else self.lr
@@ -76,15 +78,15 @@ class LinearRegression:
             
             rng = np.random.default_rng(self.random_state)
             # Epochs Loop
-            for i in range(self.itterations):
+            for epoch in range(self.itterations):
                 # Mini-Batch Gradient Descent
                 perm = rng.permutation(len(X))
                 
                 steps_per_epochs = math.ceil(len(X)/self.batch_size)
                 
                 # Mini-Batch Loop
-                for start in range(0, math.ceil(len(X)/self.batch_size)):
-                    batch_idx = perm[start * self.batch_size: (start + 1) * self.batch_size]
+                for batch in range(0, math.ceil(len(X) / self.batch_size)):
+                    batch_idx = perm[batch * self.batch_size: (batch + 1) * self.batch_size]
                     X_batch = X[batch_idx]
                     y_batch = y[batch_idx]
                     updates += 1
@@ -105,7 +107,7 @@ class LinearRegression:
                 loss = mean_squared_error(y, y_pred) if not self.early_stopping else mean_squared_error(self.y_val, y_pred)
 
                 if loss < best_loss:
-                    best_prams = np.concatenate([[self.intercept], self.W.copy()])
+                    best_weights = self.W.copy()
                     best_loss = loss
                     patience_idx = 0
                 else:
@@ -116,9 +118,10 @@ class LinearRegression:
             
             print("Val Loss:", best_loss)
             if not self.early_stopping:
-                best_prams = np.concatenate([[self.intercept], self.W.copy()])
-            return best_prams
-        
+                best_weights = self.W.copy()
+                
+            return np.hstack([self.intercept, best_weights])
+
         def adagd_train(self, X, y):
             G = np.zeros(self.b_count)
             patience_idx = 0
@@ -146,10 +149,10 @@ class LinearRegression:
             return best_prams
 
 
-
         def __call__(self, X, y):
+            self.model.fitted = self
             self.X = np.asarray(X, dtype=float)
-            self.y = y
+            self.y = np.asarray(y, dtype=float)
             self.n = len(y)
             
             if self.early_stopping:
@@ -159,9 +162,8 @@ class LinearRegression:
                 self.X_val = X_val
                 self.y_val = y_val
             else:
-                self.X_train = X
-                self.y_train = y
-            
+                self.X_train = self.X
+                self.y_train = self.y
             
             self.w_count = self.X_train.shape[1]
             self.W = np.zeros(self.w_count)
@@ -171,22 +173,21 @@ class LinearRegression:
             
             
             if self.optimizer == "sgd":
-                params = self.sgd_train(self.X_train, self.y_train)
-                self.W = params[1:]
-                self.intercept = params[0]
+                betas = self.sgd_train(self.X_train, self.y_train)
+                self.W = betas[1:]
+                self.intercept = betas[0]
             elif self.optimizer == "adaptive_gradient":
                 self.W = self.adagd_train(self.X_train, self.y)
+            
+            self.model.fitted = self
             return self
             
-        def predict(self, X):          
-            X = np.asarray(X, dtype=float)  
-            Y = np.zeros(len(X))
-            for i in range(self.w_count):
-                Y += self.W[i] * X[:, i]
-            return Y + self.intercept
+    def predict(self, X):
+        if self.fitted is None:
+            raise Exception("Model is not fitted yet. Please call 'fit' before 'predict'.")
         
-        def _coeff(self):
-            return np.concatenate([[self.intercept], self.W])
-
-        def residuals(self, y, y_pred):
-            return y - y_pred
+        X = np.asarray(X, dtype=float)
+        Y = np.zeros(len(X))
+        for i in range(self.w_count):
+            Y += self.fitted.W[i] * X[:, i]
+        return Y + self.fitted.intercept

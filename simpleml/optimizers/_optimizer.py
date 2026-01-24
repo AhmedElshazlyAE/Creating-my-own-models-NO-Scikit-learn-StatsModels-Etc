@@ -14,7 +14,7 @@ def gradient_descent(W, dW, lr):
 def adaptive_gradient(W, dW, G, lr):
     """
     Performs a single step of adaptive gradient optimization (Adagrad).
-    B: Current parameters (weights).
+    W: Current parameters (weights).
     dW: Gradient of the loss with respect to parameters.
     G: Accumulated squared gradients.
     lr: Learning rate.
