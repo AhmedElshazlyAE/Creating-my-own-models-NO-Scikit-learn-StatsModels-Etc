@@ -1,3 +1,6 @@
+# simpleml/Preprocessing/_scalers.py
+# A simple implementation of Z-Score Scaler
+
 import numpy as np
 
 class ZScoreScaler:
