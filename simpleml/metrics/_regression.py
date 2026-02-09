@@ -52,9 +52,9 @@ def mean_absolute_percentage_error(y, y_pred):
 
 def regression_report(y, y_pred):
     return {
-        "R2 Score": round(r2_score(y, y_pred), 4),
-        "Mean Squared Error": round(mean_squared_error(y, y_pred), 4),
-        "Mean Absolute Error": round(mean_absolute_error(y, y_pred), 4),
-        "Root Mean Squared Error": round(root_mean_squared_error(y, y_pred), 4),
-        "Mean Absolute Percentage Error": round(mean_absolute_percentage_error(y, y_pred), 4)
+        "R2 Score": round(r2_score(y, y_pred), 6),
+        "Mean Squared Error": round(mean_squared_error(y, y_pred), 6),
+        "Mean Absolute Error": round(mean_absolute_error(y, y_pred), 6),
+        "Root Mean Squared Error": round(root_mean_squared_error(y, y_pred), 6),
+        "Mean Absolute Percentage Error": round(mean_absolute_percentage_error(y, y_pred), 6)
     }

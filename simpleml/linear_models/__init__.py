@@ -1,1 +1,1 @@
-from  ._Linear_Regression import LinearRegression
+from  ._SGDRegressor import SGDRegressor
