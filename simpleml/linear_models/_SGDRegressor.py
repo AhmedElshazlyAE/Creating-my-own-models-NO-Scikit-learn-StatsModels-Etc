@@ -153,32 +153,6 @@ class SGDRegressor:
 
             return np.hstack([self.intercept, best_weights])
 
-        def adagd_train(self, X, y):
-            G = np.zeros(self.b_count)
-            patience_idx = 0
-            best_loss = math.inf  # Highest Possible Loss for early stopping
-            best_prams = self.W
-            y_pred = self.predict(X)
-            for i in range(self.itterations):
-                dw = self.weights_dv(X, y, y_pred)
-                G += dw ** 2
-                self.W = opt.adaptive_gradient(self.W, dw, G, self.lr)
-
-                y_pred = self.predict(X, scaling=False)
-                loss = mean_squared_error(y, y_pred)
-
-                if round(loss, 3) < round(best_loss, 3):
-                    best_prams = self.W
-                    best_loss = loss
-                    patience_idx = 0
-                else:
-                    patience_idx += 1
-                    
-                if patience_idx + 1 >= self.patience and self.model.early_stopping:
-                    break
-
-            return best_prams
-
         
         # call function for initializing the training
         def __call__(self, X, y):
