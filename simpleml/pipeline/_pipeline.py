@@ -1,3 +1,5 @@
+# simpleml/Pipeline/_pipeline.py
+# A simple implementation of a machine learning pipeline
 class Pipeline:
     def __init__(self, steps):
         self.steps = steps

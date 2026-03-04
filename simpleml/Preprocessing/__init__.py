@@ -1,1 +1,1 @@
-from ._scalers import ZScoreScaler
+from ._scalers import StandardScaler

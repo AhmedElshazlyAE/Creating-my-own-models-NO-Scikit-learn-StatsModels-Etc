@@ -13,7 +13,7 @@ from ..regularizers import l2
 from ..model_selection import train_test_split
 
 # Creating a class to be able to instantiate a linear regression object for repeatability
-class SGDRegressor:
+class SGDClassifier:
     def __init__(self, lr="invscaling", max_itter=1000, patience=10, 
                  early_stopping=False, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
                  random_state=None): 
@@ -29,35 +29,29 @@ class SGDRegressor:
         self.random_state = random_state
         
         # initializing the trainer for the model which will be used to fit the model and train it using the sgd algorithm
-        self._trainer = SGDRegressor.Fit(self)  
+        self._trainer = SGDClassifier.Fit(self)  
         self.fitted_ = None  
         self.coef_ = None
         self.intercept_ = None
         self.n_features_in_ = None
         
-    # function to calculate the derivative of the intercept with respect to the loss function (MSE)
-    # 2 / n * SUM(y_pred - y)
-    def intercept_dv(self, batch_size, y, y_pred):
-        db = (2 / batch_size) * (y_pred - y).sum()
-        return db
+            
+    def predict_proba(self, X):
+        if self.coef_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        
+        X = np.asarray(X, dtype=float) if not isinstance(X, np.ndarray) else X.astype(float)
+        
+        y_pred = X @ self.coef_ + self.intercept_
+        return self.stable_sigmoid(y_pred)
     
-    # function to calculate the derivative of the weights with respect to the loss function (MSE)
-    # 2 / n * SUM((y_pred - y) * X) + l2
-    def weights_dv(self, batch_size, X, y, y_pred, W):
-        features_count = X.shape[1]
+    def predict(self, X, threshold=0.5):
+        if self.coef_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
         
-        # setting an array with the size of the number of weights equal to 0
-        dw = np.zeros(features_count)
-        residuals = y_pred - y
-        inverse_size = 2 / batch_size
-        
-        # calculating the l2 regularizer using the l2 function from regularizer package
-        l2_term = l2(self.l2_ratio, W)
-        
-        # inverse_size * residuals @ X is the vectorized form of the sum of (y_pred - y) * X for all samples in the batch and adding the l2 term to it to get the final weights derivative
-        dw = inverse_size * residuals @ X + l2_term
-
-        return dw
+        X = np.asarray(X, dtype=float) if not isinstance(X, np.ndarray) else X.astype(float)
+        proba = self.predict_proba(X)
+        return (proba >= threshold).astype(int)
 
     class Fit:
         def __init__(self, model):
@@ -69,17 +63,55 @@ class SGDRegressor:
             self.max_itter = self.model.max_itter
             self.patience = self.model.patience
             self.early_stopping = self.model.early_stopping
-            self.weights_dv = self.model.weights_dv
-            self.intercept_dv = self.model.intercept_dv
             self.batch_size = self.model.batch_size
             self.epochs_per_decay = self.model.epochs_per_decay
             self.fit_intercept = self.model.fit_intercept
             self.random_state = self.model.random_state
             self.l2_ratio = self.model.l2_ratio
         
-        def _predict_internal(self, X):
-            X = np.asarray(X, dtype=float)
+        def _predict_proba_internal(self, X):
             return X @ self.W + self.intercept
+        
+        def stable_binary_cross_entropy(self, y, y_pred):
+            return np.logaddexp(0, -y * y_pred) - y * y_pred
+        
+        # function to calculate the derivative of the intercept with respect to the loss function (MSE)
+        # 2 / n * SUM(y_pred - y)
+        
+        def intercept_dv(self, y, y_pred):
+            return np.mean(y_pred - y)
+        
+        
+        # function to calculate the derivative of the weights with respect to the loss function (MSE)
+        # 2 / n * SUM((y_pred - y) * X) + l2
+
+        def weights_dv(self, X, y, y_pred, W):
+            features_count = len(y)
+            
+            # setting an array with the size of the number of weights equal to 0
+            dw = np.zeros(features_count)
+            residuals = y_pred - y
+            
+            # calculating the l2 regularizer using the l2 function from regularizer package
+            l2_term = l2(self.l2_ratio, W)
+            
+            # inverse_size * residuals @ X is the vectorized form of the sum of (y_pred - y) * X for all samples in the batch and adding the l2 term to it to get the final weights derivative
+            dw = (X.T @ (residuals)) / len(y) + l2_term
+
+            return dw
+        
+        
+        def stable_sigmoid(self, z):
+            s = 1 / (1 + np.exp(-z)) if z >= 0 else np.exp(z) / (1 + np.exp(z))
+            return s
+        
+        def fit(self, X, y):
+            trainer = self._trainer(X, y)     
+            self.fitted_ = trainer            
+            self.coef_ = trainer.W.copy()
+            self.intercept_ = trainer.intercept
+            self.n_features_in_ = trainer.w_count
+            return self
             
         # this function trains a mini-batch sgd regressor model and return the new weights and intercept
         def sgd_train(self, X, y):
@@ -111,14 +143,12 @@ class SGDRegressor:
                     X_batch = X[batch_idx]
                     y_batch = y[batch_idx]
                     updates += 1
-
-                    current_batch_size = len(X_batch)
                     
-                    y_pred = self._predict_internal(X_batch)
+                    y_pred = self._predict_proba_internal(X_batch)
                     
                     # getting weights and intercept derivatives
-                    dw = self.weights_dv(current_batch_size, X_batch, y_batch, y_pred, self.W)
-                    db = self.intercept_dv(current_batch_size, y_batch, y_pred) if self.fit_intercept else 0
+                    dw = self.weights_dv(X_batch, y_batch, y_pred, self.W)
+                    db = self.intercept_dv(y_batch, y_pred) if self.fit_intercept else 0
                     
                     # updating weights and intercept
                     self.W = opt.gradient_descent(self.W, dw, decayed_lr)
@@ -129,11 +159,11 @@ class SGDRegressor:
                 
                 # calculating the loss for early stopping, if enabled, using the validation set if early stopping is enabled otherwise using the training set
                 if self.early_stopping:
-                    y_pred = self._predict_internal(self.X_val)
-                    loss = mean_squared_error(self.y_val, y_pred)
+                    y_pred = self._predict_proba_internal(self.X_val)
+                    loss = self.stable_binary_cross_entropy(self.y_val, y_pred).mean()
                 else:
-                    y_pred = self._predict_internal(self.X_train)
-                    loss = mean_squared_error(self.y_train, y_pred)
+                    y_pred = self._predict_proba_internal(self.X_train)
+                    loss = self.stable_binary_cross_entropy(self.y_train, y_pred).mean()
                 
                 # if current loss is better than best loss reset patience and save the new loss as the best loss
                 if loss < best_loss:
@@ -192,14 +222,3 @@ class SGDRegressor:
         # X @ self.coef_ is the dot product of X and the weights adding the intercept to get the final prediction
         return X @ self.coef_ + self.intercept_
 
-    def fit(self, X, y):
-        trainer = self._trainer(X, y)     
-        self.fitted_ = trainer            
-        self.coef_ = trainer.W.copy()
-        self.intercept_ = trainer.intercept
-        self.n_features_in_ = trainer.w_count
-        return self
-    
-    
-    # Add validation fraction hyperparameter, to set aside a 
-    # fraction of the training data for validation when early stopping is enabled
