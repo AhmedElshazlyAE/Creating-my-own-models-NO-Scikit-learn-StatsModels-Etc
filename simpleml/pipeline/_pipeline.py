@@ -29,6 +29,16 @@ class Pipeline:
 
         name, est = self.steps[-1]
         return est.predict(Xt)
+    
+    def predict_proba(self, X):
+        if not hasattr(self.steps[-1][1], "predict_proba"):
+            raise AttributeError(f"The last step '{self.steps[-1][0]}' does not have a 'predict_proba' method.")
+        Xt = X
+        for name, step in self.steps[:-1]:
+            Xt = step.transform(Xt)
+
+        name, est = self.steps[-1]
+        return est.predict_proba(Xt)
 
 def make_pipeline(*objs):
     steps = [(obj.__class__.__name__.lower(), obj) for obj in objs]

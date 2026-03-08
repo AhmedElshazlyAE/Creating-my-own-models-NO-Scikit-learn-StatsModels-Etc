@@ -1,6 +1,7 @@
-# linear_models/_Linear_Regression.py
-# Multiple Linear Regression
-# y = b0 + b1x1 + b2x2 + ... + bnxn 
+# linear_models/_SGDRegressor.py
+# Stochastic Gradient Descent Regressor Implementation from scratch using Numpy only
+# with support for mini-batch training, learning rate scheduling, and early stopping
+# y = X  W + b where W are the weights and b is the intercept 
 
 # Importing Numpy and math we will only be using these for the library 
 import numpy as np
@@ -12,7 +13,7 @@ from ..schedulers import inverse_scaling
 from ..regularizers import l2
 from ..model_selection import train_test_split
 
-# Creating a class to be able to instantiate a linear regression object for repeatability
+# Creating a class to be able to instantiate a sgd regressor object for repeatability
 class SGDRegressor:
     def __init__(self, lr="invscaling", max_itter=1000, patience=10, 
                  early_stopping=False, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
