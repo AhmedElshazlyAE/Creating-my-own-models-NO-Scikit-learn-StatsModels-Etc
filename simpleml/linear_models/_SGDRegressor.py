@@ -148,7 +148,6 @@ class SGDRegressor:
                 if patience_idx + 1 >= self.patience and self.model.early_stopping:
                     break
             
-            print("Val Loss:", best_loss)
             if not self.early_stopping:
                 best_weights = self.W.copy()
 
@@ -201,6 +200,19 @@ class SGDRegressor:
         self.n_features_in_ = trainer.w_count
         return self
     
+    def get_params(self):
+        return {
+            "learning_rate": self.learning_rate,
+            "max_iter": self.max_iter,
+            "patience": self.patience,
+            "early_stopping": self.early_stopping,
+            "batch_size": self.batch_size,
+            "epochs_per_decay": self.epochs_per_decay,
+            "fit_intercept": self.fit_intercept,
+            "l2_ratio": self.l2_ratio,
+            "random_state": self.random_state,
+            "eta0": self.eta0
+        }
     
     # Add validation fraction hyperparameter, to set aside a 
     # fraction of the training data for validation when early stopping is enabled
