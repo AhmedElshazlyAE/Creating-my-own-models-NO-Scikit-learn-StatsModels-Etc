@@ -6,14 +6,15 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "numpy",
+    "pandas",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pandas",
     "scikit-learn",
     "jupyter",
+    "matplotlib",
 ]
 
 [build-system]
@@ -23,3 +24,7 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["simpleml*"]
+exclude = ["assets*", "tests*", "examples*"]
