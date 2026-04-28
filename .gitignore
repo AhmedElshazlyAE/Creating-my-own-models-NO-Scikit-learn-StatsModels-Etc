@@ -17,11 +17,29 @@ venv/
 env/
 ENV/
 
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
 # Environment variables/secrets
 .env
 .env.*
 
-# Data files / generated datasets
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Data/generated files
 data/
 datasets/
-*.csv
+outputs/
+artifacts/
+models/
+*.pkl
+*.joblib
+*.npy
+*.npz

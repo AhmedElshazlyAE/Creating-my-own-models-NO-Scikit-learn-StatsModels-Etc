@@ -1,0 +1,9 @@
+[33mcommit b88fdc93742b051d01e46e7a5c7a7ab27a251b3e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mt1[m[33m, [m[1;31mMyModels/t1[m[33m, [m[1;31mMyModels/HEAD[m[33m)[m
+Author: Ahmed Elshazly <ahmedelshazly5262@gmail.com>
+Commit: Ahmed Elshazly <ahmedelshazly5262@gmail.com>
+
+    Added regression_comparison notebook to compare simpleML & scikit-learn's SGDRegressors
+    
+    - Added a method `get_params` to the SGDRegressor class to retrieve hyperparameters.
+    
+    Co-authored-by: Copilot <copilot@github.com>
