@@ -253,4 +253,34 @@ class SGDClassifier:
         self.intercept_ = trainer.intercept
         self.n_features_in_ = trainer.w_count
         return self
+    
+       
+    def get_params(self):
+        return {
+            "learning_rate": self.learning_rate,
+            "max_iter": self.max_iter,
+            "patience": self.patience,
+            "early_stopping": self.early_stopping,
+            "batch_size": self.batch_size,
+            "epochs_per_decay": self.epochs_per_decay,
+            "fit_intercept": self.fit_intercept,
+            "l2_ratio": self.l2_ratio,
+            "random_state": self.random_state,
+            "eta0": self.eta0
+        }
+    
+    def coef_(self):
+        if self.coef_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.coef_
+    
+    def intercept_(self):
+        if self.intercept_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.intercept_
+    
+    def n_features_in_(self):
+        if self.n_features_in_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.n_features_in_
 

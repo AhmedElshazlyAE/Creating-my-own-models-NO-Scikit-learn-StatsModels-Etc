@@ -213,6 +213,19 @@ class SGDRegressor:
             "random_state": self.random_state,
             "eta0": self.eta0
         }
+        
+    def coef_(self):
+        if self.coef_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.coef_
     
-    # Add validation fraction hyperparameter, to set aside a 
-    # fraction of the training data for validation when early stopping is enabled
+    def intercept_(self):
+        if self.intercept_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.intercept_
+    
+    def n_features_in_(self):
+        if self.n_features_in_ is None:
+            raise ValueError("Model is not fitted yet. Call fit(X, y) first.")
+        return self.n_features_in_
+    
