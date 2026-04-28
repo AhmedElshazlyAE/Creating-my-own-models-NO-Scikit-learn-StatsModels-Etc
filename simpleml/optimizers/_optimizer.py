@@ -2,23 +2,23 @@
 # Here we are defining different optimization algorithms.
 
 
-def gradient_descent(W, dW, lr):
+def gradient_descent(W, dW, learning_rate):
     """
     Performs a single step of gradient descent optimization.
     W: Current parameters (weights).
     dW: Gradient of the loss with respect to parameters.
-    lr: Learning rate.
+    learning_rate: Learning rate.
     """
-    return W - lr * dW
+    return W - learning_rate * dW
 
-def adaptive_gradient(W, dW, G, lr):
+def adaptive_gradient(W, dW, G, learning_rate):
     """
     Performs a single step of adaptive gradient optimization (Adagrad).
     W: Current parameters (weights).
     dW: Gradient of the loss with respect to parameters.
     G: Accumulated squared gradients.
-    lr: Learning rate.
+    learning_rate: Learning rate.
     """
     epsilon = 1 * 10**(-8)
-    step = lr / (G ** .5 + epsilon)
+    step = learning_rate / (G ** .5 + epsilon)
     return W - step * dW
