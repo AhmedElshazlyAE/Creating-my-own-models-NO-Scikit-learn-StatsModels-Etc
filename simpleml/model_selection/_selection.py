@@ -18,7 +18,8 @@ def train_test_split(X, y, test_size=0.2, random_state=None):
     X = np.array(X)
     y = np.array(y)
     if random_state is not None:
-        np.random.seed(random_state)
+        rng = np.random.default_rng(random_state)
+        indices = rng.permutation(n_samples)
 
     n_samples = X.shape[0]
     indices = np.arange(n_samples)
