@@ -1,6 +1,6 @@
 # SimpleML
 
-[![Tests](https://github.com/AhmedElshazlyAE/simpleML/actions/workflows/tests.yml/badge.svg?branch=t1)](https://github.com/AhmedElshazlyAE/simpleML/actions/workflows/tests.yml)
+[![Tests](https://github.com/AhmedElshazlyAE/simpleML/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/AhmedElshazlyAE/simpleML/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Built with NumPy](https://img.shields.io/badge/Built%20with-NumPy-lightgrey)
 
