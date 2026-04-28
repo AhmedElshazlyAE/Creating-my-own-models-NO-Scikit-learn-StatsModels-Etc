@@ -9,6 +9,7 @@ simpleml/linear_models/_SGDClassifier.py
 simpleml/linear_models/_SGDRegressor.py
 simpleml/linear_models/__init__.py
 simpleml/metrics/__init__.py
+simpleml/metrics/_classification.py
 simpleml/metrics/_regression.py
 simpleml/model_selection/__init__.py
 simpleml/model_selection/_selection.py

@@ -16,7 +16,7 @@ from ..model_selection import train_test_split
 class SGDClassifier:
     def __init__(self, learning_rate="invscaling", max_iter=1000, patience=10, 
                  early_stopping=False, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
-                 random_state=None): 
+                 random_state=None, eta0=0.01): 
         
         self.learning_rate = learning_rate # learning rate
         self.max_iter = max_iter # number of iterations (epochs)
@@ -27,6 +27,7 @@ class SGDClassifier:
         self.fit_intercept = fit_intercept # if set to false the regressor will not fit an intercept during training
         self.l2_ratio = l2_ratio 
         self.random_state = random_state
+        self.eta0 = eta0
         
         # initializing the trainer for the model which will be used to fit the model and train it using the sgd algorithm
         self._trainer = SGDClassifier.Fit(self)  
@@ -57,9 +58,11 @@ class SGDClassifier:
         logits = self.decision_function(X)
         return self.stable_sigmoid(logits)
     
-    # function to predict the class labels for a given input X based on the predicted probabilities
-    # using predict_proba function and a threshold to determine the class labels default threshold is 0.5
-    # example: if proba >= 0.5 predict class 1 otherwise predict class 0
+    """
+    function to predict the class labels for a given input X based on the predicted probabilities
+    using predict_proba function and a threshold to determine the class labels default threshold is 0.5
+    example: if proba >= 0.5 predict class 1 otherwise predict class 0
+    """
 
     def predict(self, X, threshold=0.5):
         if self.coef_ is None:
@@ -72,7 +75,10 @@ class SGDClassifier:
         proba = self.predict_proba(X)
         return (proba >= threshold).astype(int)
     
-    # logit function to calculate the decision function for a given input X using the fitted model
+    """
+    logit function to calculate the decision function for
+    a given input X using the fitted model
+    """
     def decision_function(self, X):
         return X @ self.coef_ + self.intercept_
 
@@ -92,6 +98,7 @@ class SGDClassifier:
             self.random_state = self.model.random_state
             self.l2_ratio = self.model.l2_ratio
             self.stable_sigmoid = self.model.stable_sigmoid
+            self.eta0 = self.model.eta0
         
         # same as predict_proba but without checking if the model is fitted and without X type checking and
         # reshaping to speed up training since this will be called multiple times
@@ -138,7 +145,7 @@ class SGDClassifier:
             best_loss = math.inf  # Highest Possible Loss for early stopping
             best_weights = self.W
             self.batch_size = self.batch_size if self.batch_size < n else n # if the batch size is greater than the size of the dataset set it to the whole dataset size
-            learning_rate = 1.0 if self.learning_rate == "invscaling" else self.learning_rate # set learning_rate to 1 if inverse scaling is enabled
+            learning_rate = self.eta0 if self.learning_rate == "invscaling" else self.learning_rate # set learning_rate to eta0 if inverse scaling is enabled
             decayed_learning_rate = learning_rate
             updates = 0
             

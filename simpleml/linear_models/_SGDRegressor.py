@@ -17,7 +17,7 @@ from ..model_selection import train_test_split
 class SGDRegressor:
     def __init__(self, learning_rate="invscaling", max_iter=1000, patience=10, 
                  early_stopping=False, batch_size=32, epochs_per_decay=10, fit_intercept=True, l2_ratio = 0.01,
-                 random_state=None): 
+                 random_state=None, eta0=0.01): 
         
         self.learning_rate = learning_rate # learning rate
         self.max_iter = max_iter # number of iterations (epochs)
@@ -28,7 +28,7 @@ class SGDRegressor:
         self.fit_intercept = fit_intercept # if set to false the regressor will not fit an intercept during training
         self.l2_ratio = l2_ratio 
         self.random_state = random_state
-        
+        self.eta0 = eta0
         # initializing the trainer for the model which will be used to fit the model and train it using the sgd algorithm
         self._trainer = SGDRegressor.Fit(self)  
         self.fitted_ = None  
@@ -77,7 +77,7 @@ class SGDRegressor:
             self.fit_intercept = self.model.fit_intercept
             self.random_state = self.model.random_state
             self.l2_ratio = self.model.l2_ratio
-        
+            self.eta0 = self.model.eta0
         def _predict_internal(self, X):
             X = np.asarray(X, dtype=float)
             return X @ self.W + self.intercept
@@ -89,7 +89,7 @@ class SGDRegressor:
             best_loss = math.inf  # Highest Possible Loss for early stopping
             best_weights = self.W
             self.batch_size = self.batch_size if self.batch_size < n else n # if the batch size is greater than the size of the dataset set it to the whole dataset size
-            learning_rate = 1.0 if self.learning_rate == "invscaling" else self.learning_rate # set learning_rate to 1 if inverse scaling is enabled
+            learning_rate = self.eta0 if self.learning_rate == "invscaling" else self.learning_rate # set learning_rate to 1 if inverse scaling is enabled
             decayed_learning_rate = learning_rate
             updates = 0
             
